@@ -33,31 +33,47 @@ class Reader:
 class Representation:
 
     def convert(self, data):
-        data['time_diff'] = data['timestamp'].diff()
-        data['price_diff'] = data['price'].pct_change().fillna(0)
-        data['codirect'] = (
-            np.sign(data['price_diff']) == np.sign(data['side'])
-            ).astype(int)
-        data = data.set_index('traded')
-        return data
+        converted_data = list()
+        for window in data:
+            window['time_diff'] = window['timestamp'].diff()
+            window['price_diff'] = window['price'].pct_change().fillna(0)
+            window['codirect'] = (
+                np.sign(window['price_diff']) == np.sign(window['side'])
+                ).astype(int)
+            converted_data.append(window)
+        return converted_data
 
 
 class Slicer:
 
-    def __init__(self, by: str, window_size: int, step: int) -> None:
+    def __init__(
+        self, by: str,
+        window_size: int,
+        step: int,
+        take_profit: int,
+        stop_loss: int,
+        label_windows_size: int
+        ):
         if by not in ['time', 'tick', 'quantity', 'money']:
-            raise ValueError("by not in: 'time', 'tick', 'quantity', 'money'")
+            raise ValueError("'by' not in: ['time', 'tick', 'quantity', 'money']")
 
-        self.data = list()
+        self.windows = list()
+        self.labels = np.empty(0, dtype=np.int)
+        self.results = np.empty(0, dtype=np.float)
         self.by = by
         self.window_size = window_size
         self.step = step
+        self.take_profit = take_profit
+        self.stop_loss = stop_loss
+        self.label_windows_size = label_windows_size
 
     def convert(self, data):
         if self.by == 'money':
             data = self.money_index(data)
 
-        windows_amount = (int(data.index.max()) - self.window_size)//self.step
+        windows_amount = (data.index.max() - (self.window_size + self.label_windows_size))//self.step
+        windows_amount = int(windows_amount)
+
         for i in range(windows_amount):
             start_value = i * self.step
             end_value = i * self.step + self.window_size
@@ -65,10 +81,45 @@ class Slicer:
                 (data.index >= start_value)
                 & (data.index < end_value)
                 ]
-            self.data.append(window)
+            label_data = data[
+                (data.index >= end_value)
+                & (data.index < end_value + self.label_windows_size)
+                ]
+            label, result = self.check_label(label_data)
+            self.windows.append(window)
+            self.labels = np.append(self.labels, label)
+            self.results = np.append(self.results, result)
+
+    def check_label(self, data: pd.DataFrame):
+        data['price'] = data['price'] - data['price'].iloc[0]
+        prices = data['price'].values
+        label = int(0)
+        result = prices[-1]
+        last_index = data.shape[0] - 1
+        tp_indexes = np.where(prices >= self.take_profit)[0]
+        sl_indexes = np.where(prices <= -self.stop_loss)[0]
+        if tp_indexes.size != 0:
+            first_tp = tp_indexes[0]
+        else:
+            first_tp = last_index
+
+        if sl_indexes.size != 0:
+            first_sl = sl_indexes[0]
+        else:
+            first_sl = last_index
+
+        if (first_tp < first_sl) & (first_tp < last_index):
+            label = int(1)
+            result = prices[first_tp]
+        if (first_sl < first_tp) & (first_sl < last_index):
+            label = int(2)
+            result = prices[first_sl]
+
+        return label, result
 
     @staticmethod
     def money_index(data):
-        data.index = data['quantity'] * data['price']
+        new_index = data['quantity'] * data['price']
+        data.index = new_index.cumsum()
         return data
 
