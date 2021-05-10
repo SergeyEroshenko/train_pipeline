@@ -1,7 +1,11 @@
 import os
 from glob import glob
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
+from tsfresh import extract_features, extract_relevant_features, select_features
+from tsfresh.utilities.dataframe_functions import impute
+from tsfresh.feature_extraction import settings
 
 
 class Reader:
@@ -16,7 +20,7 @@ class Reader:
             glob(os.path.join(self.data_path, self.symbol, '*.csv'))
             )
 
-        for file in files_list:
+        for file in tqdm(files_list, total=len(files_list), desc='Data Loading: '):
             df = pd.read_csv(file, sep=';')
             self.data.append(df)
 
@@ -34,13 +38,27 @@ class Representation:
 
     def convert(self, data):
         converted_data = list()
-        for window in data:
+        settings_efficient = settings.MinimalFCParameters()
+
+        for idx, window in enumerate(data):
             window['time_diff'] = window['timestamp'].diff()
+            window['time_diff'] = window['time_diff'].dt.total_seconds()
             window['price_diff'] = window['price'].pct_change().fillna(0)
             window['codirect'] = (
                 np.sign(window['price_diff']) == np.sign(window['side'])
                 ).astype(int)
+            window = window.drop(['timestamp'], axis=1)
+            window.loc[:, 'id'] = idx
             converted_data.append(window)
+        converted_data = pd.concat(converted_data).reset_index(drop=True)
+        converted_data['time_diff'] = converted_data['time_diff'].fillna(0)
+        converted_data = extract_features(
+            converted_data, 
+            column_id='id', 
+            impute_function=impute, 
+            default_fc_parameters=settings_efficient
+            )
+
         return converted_data
 
 
