@@ -47,7 +47,7 @@ class Representation:
             window['codirect'] = (
                 np.sign(window['price_diff']) == np.sign(window['side'])
                 ).astype(int)
-            window = window.drop(['timestamp'], axis=1)
+            window = window.drop(['price', 'timestamp'], axis=1)
             window.loc[:, 'id'] = idx
             converted_data.append(window)
         converted_data = pd.concat(converted_data).reset_index(drop=True)
@@ -92,7 +92,7 @@ class Slicer:
         windows_amount = (data.index.max() - (self.window_size + self.label_windows_size))//self.step
         windows_amount = int(windows_amount)
 
-        for i in range(windows_amount):
+        for i in tqdm(range(windows_amount), total=windows_amount, desc="Slicing: "):
             start_value = i * self.step
             end_value = i * self.step + self.window_size
             window = data[
