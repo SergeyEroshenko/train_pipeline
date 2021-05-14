@@ -1,3 +1,4 @@
+from re import search
 import numpy as np
 from mltrading.utils import Reader, Representation, Slicer
 from sklearn.model_selection import cross_val_score ,TimeSeriesSplit, train_test_split
@@ -10,6 +11,7 @@ import warnings
 
 
 warnings.filterwarnings('ignore')
+# Initialize parameters and objects
 data_path = "/Users/sergeyerosenko/cryptoex/data"
 
 multiply = 1e6
@@ -20,12 +22,14 @@ take_profit = 10000 * point
 stop_loss = 10000 * point
 label_windows_size = window_size
 
+search_params = ['max_depth', 'n_estimators', 'learning_rate', 'min_samples_split', 'min_samples_leaf']
+
 space = [
-    Integer(1, 7, name='max_depth'),
-    Integer(5, 5000, name='n_estimators'),
-    Real(10**-5, 10**5, 'log-uniform', name='learning_rate'),
-    Integer(2, 6, name='min_samples_split'),
-    Integer(1, 6, name='min_samples_leaf')
+    Integer(1, 7, name=search_params[0]),
+    Integer(5, 5000, name=search_params[1]),
+    Real(10**-5, 10**5, 'log-uniform', name=search_params[2]),
+    Integer(2, 6, name=search_params[3]),
+    Integer(1, 6, name=search_params[4])
 ]
 
 model = GradientBoostingClassifier
@@ -33,7 +37,7 @@ cv = TimeSeriesSplit(n_splits=5)
 reader = Reader(data_path, "BTCUSD")
 slicer = Slicer("money", window_size, step, take_profit, stop_loss, label_windows_size)
 stat_repr = Representation()
-
+# Data reading and preparing. Dataset creating.
 data = reader.get_data()
 slicer.convert(data)
 
@@ -49,7 +53,7 @@ num_intersect = np.floor(window_size / step).astype(int)
 X = X[: -num_intersect]
 y = y[: -num_intersect]
 print(f"Dataset parameters: num windows {X.shape[0]}, num features {X.shape[1]}.")
-
+# Finding optimal model parameters with cross validation apply.
 @use_named_args(space)
 def objective(**params):
     print(params)
@@ -88,8 +92,9 @@ def objective(**params):
 result = gp_minimize(objective, space, n_calls=20, random_state=1, verbose=True)
 print('Best Score: %.3f' % (result.fun))
 print('Best Parameters: %s' % (result.x))
-exit()   
-# Testing
+
+# Model testing
+model_params = dict(zip(search_params, result.x))
 clf = model(random_state=1)
 clf.fit(X, y)
 y_pred = clf.predict(X_test)
