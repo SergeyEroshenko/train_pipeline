@@ -1,6 +1,4 @@
-from re import search
 import numpy as np
-from skopt.space.space import Categorical
 from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import precision_score, f1_score, classification_report
 from catboost import CatBoostClassifier
