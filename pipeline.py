@@ -1,10 +1,11 @@
 from re import search
 import numpy as np
+from skopt.space.space import Categorical
 from mltrading.utils import Reader, Representation, Slicer
-from sklearn.model_selection import cross_val_score ,TimeSeriesSplit, train_test_split
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import precision_score, f1_score, classification_report
-from skopt.space import Real, Integer
+from catboost import CatBoostClassifier
+from skopt.space import Real, Integer, Categorical
 from skopt.utils import use_named_args
 from skopt import gp_minimize
 import warnings
@@ -21,18 +22,17 @@ step = 2 * multiply
 take_profit = 10000 * point
 stop_loss = 10000 * point
 label_windows_size = window_size
+n_workers=10
 
-search_params = ['max_depth', 'n_estimators', 'learning_rate', 'min_samples_split', 'min_samples_leaf']
+search_params = ['learning_rate', 'depth', 'l2_leaf_reg']
 
 space = [
-    Integer(1, 7, name=search_params[0]),
-    Integer(5, 5000, name=search_params[1]),
-    Real(10**-5, 10**5, 'log-uniform', name=search_params[2]),
-    Integer(2, 6, name=search_params[3]),
-    Integer(1, 6, name=search_params[4])
+    Real(10**-5, 1, 'log-uniform', name=search_params[0]),
+    Integer(1, 10, name=search_params[1]),
+    Integer(1, 1000, name=search_params[2]),
 ]
 
-model = GradientBoostingClassifier
+model = CatBoostClassifier
 cv = TimeSeriesSplit(n_splits=5)
 reader = Reader(data_path, "BTCUSD")
 slicer = Slicer("money", window_size, step, take_profit, stop_loss, label_windows_size)
@@ -67,7 +67,12 @@ def objective(**params):
         X_train = X_train[: -num_intersect]
         y_train = y_train[: -num_intersect]
 
-        clf = model(random_state=1, **params)
+        clf = model(
+            **params,
+            random_state=1,
+            verbose=False,
+            thread_count=n_workers
+            )
         clf.fit(X_train, y_train)
         y_pred = clf.predict(X_val)
         val_score = f1_score(y_val, y_pred, average='weighted')
@@ -95,7 +100,12 @@ print('Best Parameters: %s' % (result.x))
 
 # Model testing
 model_params = dict(zip(search_params, result.x))
-clf = model(random_state=1)
+clf = model(
+    **model_params,
+    random_state=1,
+    verbose=False,
+    thread_count=n_workers
+    )
 clf.fit(X, y)
 y_pred = clf.predict(X_test)
 score = classification_report(y_test, y_pred)
