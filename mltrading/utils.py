@@ -38,9 +38,7 @@ class Representation:
 
     def convert(self, data):
         converted_data = list()
-        settings_efficient = settings.TimeBasedFCParameters()
-        settings_efficient.update(settings.MinimalFCParameters())
-
+        settings_efficient = settings.EfficientFCParameters()
         for idx, window in enumerate(data):
             window['time_diff'] = window['timestamp'].diff()
             window['time_diff'] = window['time_diff'].dt.total_seconds()
