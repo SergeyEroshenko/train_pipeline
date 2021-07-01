@@ -14,7 +14,7 @@ from mltrading.utils import Reader, Representation, Slicer
 if __name__ == '__main__':
     warnings.filterwarnings('ignore')
     # Initialize parameters and objects
-    data_path = "./data"
+    data_path = "/content/drive/MyDrive/projects/train_pipeline/data"
 
     multiply = 1e6
     point = 1e-2
@@ -72,7 +72,9 @@ if __name__ == '__main__':
                 **params,
                 random_state=1,
                 verbose=False,
-                thread_count=n_workers
+                thread_count=n_workers,
+                #task_type="GPU",
+                #devices='0'
                 )
             clf.fit(X_train, y_train)
             y_pred = clf.predict(X_val)
