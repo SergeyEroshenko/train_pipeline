@@ -4,6 +4,7 @@ from skopt.space.space import Categorical
 from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import precision_score, f1_score, classification_report
 from catboost import CatBoostClassifier
+from catboost.utils import get_gpu_device_count
 from skopt.space import Real, Integer
 from skopt.utils import use_named_args
 from skopt import gp_minimize
@@ -38,6 +39,14 @@ if __name__ == '__main__':
     reader = Reader(data_path, "BTCUSD")
     slicer = Slicer("money", window_size, step, take_profit, stop_loss, label_windows_size)
     stat_repr = Representation()
+
+    device_count = get_gpu_device_count()
+    if device_count == 0:
+        task_type, devices = None, None
+    else:
+        task_type = "GPU"
+        devices = ":".join([str(i) for i in range(device_count)])
+
     # Data reading and preparing. Dataset creating.
     data = reader.get_data()
     slicer.convert(data)
@@ -73,8 +82,8 @@ if __name__ == '__main__':
                 random_state=1,
                 verbose=False,
                 thread_count=n_workers,
-                #task_type="GPU",
-                #devices='0'
+                task_type=task_type,
+                devices=devices
                 )
             clf.fit(X_train, y_train)
             y_pred = clf.predict(X_val)
