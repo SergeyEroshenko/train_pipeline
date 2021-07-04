@@ -102,28 +102,32 @@ if __name__ == '__main__':
         x4 = precision_sell.std()
 
         total_score = 4 / (1 / x1 + 1 / x2 + 1 / (1 - x3) + 1 / (1 - x4))
-        print(x1, x2, x3, x4)
-        print(-total_score)
+        print("mean prec. buy: %.4f, mean prec. sell: %.4f, std prec. buy: %4f, std prec. sell: %.4f" % (x1, x2, x3, x4))
+        print("score on current iteration: %.5f" % total_score)
         return -total_score
 
     result = gp_minimize(objective, space, n_calls=20, random_state=1, verbose=True)
-    print('Best Score: %.3f' % (result.fun))
-    print('Best Parameters: %s' % (result.x))
+    print('Best Score: %.3f' % (-result.fun))
+    print('Best Parameters: %.5f' % (result.x))
 
+    print("\n\nTrain model for testing best parameters.")
     # Model testing
     model_params = dict(zip(search_params, result.x))
     clf = model(
         **model_params,
         random_state=1,
         verbose=False,
-        thread_count=n_workers
+        thread_count=n_workers,
+        task_type=task_type,
+        devices=devices
         )
     clf.fit(X, y)
     y_pred = clf.predict(X_test)[:, 0]
     score = classification_report(y_test, y_pred)
-    print(f"\n\nTest score:\n{score}")
+    print(f"\nTest score:\n{score}")
 
     positive = (y_pred==1) & (y_test==1) | (y_pred==1) & (y_pred==0)
     negative = (y_pred==2) & (y_test==2) | (y_pred==2) & (y_test==0)
 
-    print(res_test[positive].sum() - res_test[negative].sum())
+    print("Profit in quote currency: %.5f" % res_test[positive].sum() - res_test[negative].sum())
+    print("Total trades: %d" % positive.sum() + negative.sum())
