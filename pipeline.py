@@ -1,11 +1,8 @@
-from re import search
 import numpy as np
-from skopt.space.space import Categorical
 from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import precision_score, f1_score, classification_report
 from catboost import CatBoostClassifier
 from catboost.utils import get_gpu_device_count
-from skopt.space import Real, Integer
 from skopt.utils import use_named_args
 from skopt import gp_minimize
 import warnings
@@ -15,19 +12,11 @@ from configs import *
 
 if __name__ == '__main__':
     warnings.filterwarnings('ignore')
-    # Initialize parameters and objects
-    search_params = ['learning_rate', 'depth', 'l2_leaf_reg']
-
-    space = [
-        Real(10**-3, 1, 'log-uniform', name=search_params[0]),
-        Integer(1, 10, name=search_params[1]),
-        Integer(1, 1000, name=search_params[2]),
-    ]
-
+    # Initialize objects
     model = CatBoostClassifier
-    cv = TimeSeriesSplit(n_splits=5)
-    reader = Reader(data_path, "BTCUSD")
-    slicer = Slicer("money", window_size, step, take_profit, stop_loss, label_windows_size)
+    cv = TimeSeriesSplit(n_splits=cv_splits)
+    reader = Reader(data_path, symbol)
+    slicer = Slicer(slice_by, window_size, step, take_profit, stop_loss, label_windows_size)
     stat_repr = Representation()
 
     # Select device for train
@@ -47,7 +36,7 @@ if __name__ == '__main__':
     results = slicer.results
 
     X, X_test, y, y_test, _, res_test = train_test_split(
-        X, y, results, test_size=0.2, random_state=1, shuffle=False
+        X, y, results, test_size=test_split_size, random_state=random_seed, shuffle=False
         )
 
     num_intersect = np.floor(window_size / step).astype(int)
@@ -70,7 +59,7 @@ if __name__ == '__main__':
 
             clf = model(
                 **params,
-                random_state=1,
+                random_state=random_seed,
                 verbose=False,
                 thread_count=n_workers,
                 task_type=task_type,
@@ -97,11 +86,14 @@ if __name__ == '__main__':
         x4 = precision_sell.std()
 
         total_score = 4 / (1 / x1 + 1 / x2 + 1 / (1 - x3) + 1 / (1 - x4))
-        print("mean prec. buy: %.4f, mean prec. sell: %.4f, std prec. buy: %4f, std prec. sell: %.4f" % (x1, x2, x3, x4))
-        print("score on current iteration: %.5f" % total_score)
+        print(
+            "Mean prec. buy: %.4f, mean prec. sell: %.4f,\nstd prec. buy: %4f, std prec. sell: %.4f" 
+            % (x1, x2, x3, x4)
+            )
+        print("Score on current iteration: %.5f" % total_score)
         return -total_score
 
-    result = gp_minimize(objective, space, n_calls=20, random_state=1, verbose=True)
+    result = gp_minimize(objective, space, n_calls=n_calls, random_state=random_seed, verbose=True)
     print('Best Score: %.3f' % (-result.fun))
     print('Best Parameters: %.5f' % (result.x))
 
@@ -110,7 +102,7 @@ if __name__ == '__main__':
     model_params = dict(zip(search_params, result.x))
     clf = model(
         **model_params,
-        random_state=1,
+        random_state=random_seed,
         verbose=False,
         thread_count=n_workers,
         task_type=task_type,
