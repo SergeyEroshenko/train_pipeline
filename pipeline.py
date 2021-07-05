@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import precision_score, f1_score, classification_report
@@ -109,6 +110,7 @@ if __name__ == '__main__':
         devices=devices
         )
     clf.fit(X, y)
+    clf.save_model(os.path.join(model_save_path, "model.cbm"))
     y_pred = clf.predict(X_test)[:, 0]
     score = classification_report(y_test, y_pred)
     print(f"\nTest score:\n{score}")
