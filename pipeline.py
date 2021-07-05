@@ -10,22 +10,12 @@ from skopt.utils import use_named_args
 from skopt import gp_minimize
 import warnings
 from mltrading.utils import Reader, Representation, Slicer
+from configs import *
 
 
 if __name__ == '__main__':
     warnings.filterwarnings('ignore')
     # Initialize parameters and objects
-    data_path = "/content/drive/MyDrive/projects/train_pipeline/data"
-
-    multiply = 1e6
-    point = 1e-2
-    window_size = 10 * multiply
-    step = 2 * multiply
-    take_profit = 10000 * point
-    stop_loss = 10000 * point
-    label_windows_size = window_size
-    n_workers=6
-
     search_params = ['learning_rate', 'depth', 'l2_leaf_reg']
 
     space = [
@@ -40,6 +30,7 @@ if __name__ == '__main__':
     slicer = Slicer("money", window_size, step, take_profit, stop_loss, label_windows_size)
     stat_repr = Representation()
 
+    # Select device for train
     device_count = get_gpu_device_count()
     if device_count == 0:
         task_type, devices = None, None
@@ -86,6 +77,9 @@ if __name__ == '__main__':
                 devices=devices
                 )
             clf.fit(X_train, y_train)
+            y_pred_train = clf.predict(X_train)
+            train_score = f1_score(y_train, y_pred_train, average='weighted')
+
             y_pred = clf.predict(X_val)
             val_score = f1_score(y_val, y_pred, average='weighted')
             prec_buy = precision_score(y_val, y_pred, labels=[1], average="micro")
@@ -93,6 +87,7 @@ if __name__ == '__main__':
 
             precision_buy = np.append(precision_buy, prec_buy)
             precision_sell = np.append(precision_sell, prec_sell)
+            print(f"Train score{idx+1} = {train_score:.5f}")
             print(f"Val score{idx+1} = {val_score:.5f}")
             # print("\n", classification_report(y_val, y_pred), "\n")
 
