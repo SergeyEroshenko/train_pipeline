@@ -1,9 +1,0 @@
-symbol = "BTCUSD"
-slice_by = "money"
-multiply = 1e6
-window_size = 10 * multiply
-step = 2 * multiply
-point = 1e-2
-take_profit = 10000 * point
-stop_loss = 10000 * point
-label_windows_size = window_size
