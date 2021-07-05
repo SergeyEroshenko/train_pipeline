@@ -1,4 +1,5 @@
 import os
+from shutil import copyfile
 import numpy as np
 from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import precision_score, f1_score, classification_report
@@ -39,7 +40,8 @@ if __name__ == '__main__':
     X, X_test, y, y_test, _, res_test = train_test_split(
         X, y, results, test_size=test_split_size, random_state=random_seed, shuffle=False
         )
-
+    print(res_test)
+    exit()
     num_intersect = np.floor(window_size / step).astype(int)
     X = X[: -num_intersect]
     y = y[: -num_intersect]
@@ -99,7 +101,7 @@ if __name__ == '__main__':
     print('Best Parameters: %.5f' % (result.x))
 
     print("\n\nTrain model for testing best parameters.")
-    # Model testing
+    # Training model with best hyperparameters
     model_params = dict(zip(search_params, result.x))
     clf = model(
         **model_params,
@@ -110,13 +112,16 @@ if __name__ == '__main__':
         devices=devices
         )
     clf.fit(X, y)
+    # Saving model and data preparing parameters
     clf.save_model(os.path.join(model_save_path, "model.cbm"))
+    copyfile("configs/pipeline_config.py", os.path.join(model_save_path, "parameters.py"))
+    # Predicting on test data with best model
     y_pred = clf.predict(X_test)[:, 0]
     score = classification_report(y_test, y_pred)
     print(f"\nTest score:\n{score}")
 
-    positive = (y_pred==1) & (y_test==1) | (y_pred==1) & (y_pred==0)
-    negative = (y_pred==2) & (y_test==2) | (y_pred==2) & (y_test==0)
-
-    print("Profit in quote currency: %.5f" % res_test[positive].sum() - res_test[negative].sum())
-    print("Total trades: %d" % positive.sum() + negative.sum())
+    # positive = (y_pred==1) & (y_test==1) | (y_pred==1) & (y_pred==0)
+    # negative = (y_pred==2) & (y_test==2) | (y_pred==2) & (y_test==0)
+    total = res_test["buy"][y_pred==1].sum() - res_test["sell"][y_pred==2].sum()
+    print("Profit in quote currency: %.5f" % total)
+    print("Total trades: %d" % (y_pred==1).sum() + (y_pred==2).sum())
