@@ -1,7 +1,8 @@
-__pycache__
+/__pycache__/
 .DS_Store
 catboost_info
 data
+configs
 
 .venv
 .env
