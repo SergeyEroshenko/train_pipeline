@@ -28,7 +28,9 @@ if __name__ == '__main__':
     else:
         task_type = "GPU"
         devices = ":".join([str(i) for i in range(device_count)])
-
+        
+    selected_device = "CPU" if task_type is None else "GPU"
+    print(f"Train on {selected_device}.")
     # Data reading and preparing. Dataset creating.
     data = reader.get_data()
     slicer.convert(data)
@@ -115,7 +117,7 @@ if __name__ == '__main__':
     # Saving model and data preparing parameters
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)
-        
+
     clf.save_model(os.path.join(model_save_path, "model.cbm"))
     copyfile("configs/pipeline_config.py", os.path.join(model_save_path, "parameters.py"))
     # Predicting on test data with best model
