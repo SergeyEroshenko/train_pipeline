@@ -40,12 +40,12 @@ if __name__ == '__main__':
     X, X_test, y, y_test, _, res_test = train_test_split(
         X, y, results, test_size=test_split_size, random_state=random_seed, shuffle=False
         )
-    print(res_test)
-    exit()
+
     num_intersect = np.floor(window_size / step).astype(int)
     X = X[: -num_intersect]
     y = y[: -num_intersect]
-    print(f"Dataset parameters: num windows {X.shape[0]}, num features {X.shape[1]}.")
+    print(f"Train dataset parameters: num windows {X.shape[0]}, num features {X.shape[1]}.")
+    print(f"Test dataset parameters: num windows {X_test.shape[0]}, num features {X_test.shape[1]}.")
     # Finding optimal model parameters with cross validation apply.
     @use_named_args(space)
     def objective(**params):
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     result = gp_minimize(objective, space, n_calls=n_calls, random_state=random_seed, verbose=True)
     print('Best Score: %.3f' % (-result.fun))
-    print('Best Parameters: %.5f' % (result.x))
+    print('Best Parameters:' + (' {:.5f}' * len(result.x)).format(*result.x))
 
     print("\n\nTrain model for testing best parameters.")
     # Training model with best hyperparameters
@@ -113,6 +113,9 @@ if __name__ == '__main__':
         )
     clf.fit(X, y)
     # Saving model and data preparing parameters
+    if not os.path.exists(model_save_path):
+        os.makedirs(model_save_path)
+        
     clf.save_model(os.path.join(model_save_path, "model.cbm"))
     copyfile("configs/pipeline_config.py", os.path.join(model_save_path, "parameters.py"))
     # Predicting on test data with best model
@@ -120,8 +123,6 @@ if __name__ == '__main__':
     score = classification_report(y_test, y_pred)
     print(f"\nTest score:\n{score}")
 
-    # positive = (y_pred==1) & (y_test==1) | (y_pred==1) & (y_pred==0)
-    # negative = (y_pred==2) & (y_test==2) | (y_pred==2) & (y_test==0)
-    total = res_test["buy"][y_pred==1].sum() - res_test["sell"][y_pred==2].sum()
+    total = res_test[y_pred==1].sum() - res_test[y_pred==2].sum()
     print("Profit in quote currency: %.5f" % total)
     print("Total trades: %d" % (y_pred==1).sum() + (y_pred==2).sum())
