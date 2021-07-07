@@ -126,5 +126,6 @@ if __name__ == '__main__':
     print(f"\nTest score:\n{score}")
 
     total = res_test[y_pred==1].sum() - res_test[y_pred==2].sum()
+    total_trades = (y_pred==1).sum() + (y_pred==2).sum()
     print("Profit in quote currency: %.5f" % total)
-    print("Total trades: %d" % (y_pred==1).sum() + (y_pred==2).sum())
+    print("Total trades: %d" % total_trades)
